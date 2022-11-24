@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title> Graphe </title>
+    <script src="https://d3js.org/d3.v4.js"></script>
+    <script src="fisheye/fisheye.js"></script>
+    <script src="Biblio/jquery-3.6.1.min.js"></script>
+</head>
+
+
+<body bgcolor="white">
+    <div id="chart1"></div>
+
+    <script>
+        var margin = {
+                top: 10,
+                right: 30,
+                bottom: 30,
+                left: 40
+            },
+            width = 1200 - margin.left - margin.right,
+            height = 700 - margin.top - margin.bottom;
+
+        // append the svg object to the body of the page
+        var svg = d3.select("#chart1")
+            .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform",
+                "translate(" + margin.left + "," + margin.top + ")");
+        svg.append('defs').append('marker')
+            .attr("id", 'arrowhead')
+            .attr('viewBox', '-0 -5 10 10') //the bound of the SVG viewport for the current SVG fragment. defines a coordinate system 10 wide and 10 high starting on (0,-5)
+            .attr('refX', 23) // x coordinate for the reference point of the marker. If circle is bigger, this need to be bigger.
+            .attr('refY', 0)
+            .attr('orient', 'auto')
+            .attr('markerWidth', 13)
+            .attr('markerHeight', 13)
+            .attr('xoverflow', 'visible')
+            .append('svg:path')
+            .attr('d', 'M 0,-5 L 10 ,0 L 0,5')
+            .attr('fill', '#999')
+            .style('stroke', 'none');
+        d3.json("https://raw.githubusercontent.com/rimazou/DataViz/main/data.json", function(data) {
+
+            // Initialize the links
+            var link = svg
+                .selectAll("line")
+                .data(data.links)
+                .enter()
+                .append("line")
+                .attr('marker-end', 'url(#arrowhead)')
+                .style("stroke", "#aaa")
+            const edgepaths = svg.selectAll(".edgepath") //make path go along with the link provide position for link labels
+                .data(data.links)
+                .enter()
+                .append('path')
+                .attr('class', 'edgepath')
+                .attr('fill-opacity', 0)
+                .attr('stroke-opacity', 0)
+                .attr('id', function(d, i) {
+                    return 'edgepath' + i
+                })
+                .style("pointer-events", "none");
+            // Initialize the nodes
+            var node = svg
+                .selectAll(".nodes")
+                .data(data.nodes)
+                .enter()
+                .append("circle")
+                .attr("r", 20)
+                .style("fill", "#69b3a2")
+                .call(d3.drag() //sets the event listener for the specified typenames and returns the drag behavior.
+                    .on("start", dragstarted) //start - after a new pointer becomes active (on mousedown or touchstart).
+                    .on("drag", dragged))
+                .on("end", dragended);
+
+            // Let's list the force we wanna apply on the network
+            var simulation = d3.forceSimulation(data.nodes) // Force algorithm is applied to data.nodes
+                .force("link", d3.forceLink() // This force provides links between nodes
+                    .id(function(d) {
+                        return d.id;
+                    }) // This provide  the id of a node
+                    .links(data.links) // and this the list of links
+                ).force("link", d3.forceLink().distance(40)) //definit la taille des liens ou arcs
+                .force("charge", d3.forceManyBody().strength(-400)) // This adds repulsion between nodes. Play with the -400 for the repulsion strength
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("collide", d3.forceCollide().radius(d => d.r + 1)) // permet d'eviter les collisions entre les noeuds
+                .on("end", ticked);
+            simulation
+                .nodes(data.nodes)
+                .on("tick", ticked);
+
+            simulation.force("link")
+                .links(data.links);
+
+
+
+            function dragstarted(d) {
+                if (!d3.event.active) simulation.alphaTarget(0.3).restart(); //sets the current target alpha to the specified number in the range [0,1].
+                d.fy = d.y; //fx - the node’s fixed x-position. Original is null.
+                d.fx = d.x; //fy - the node’s fixed y-position. Original is null.
+            }
+
+            //When the drag gesture starts, the targeted node is fixed to the pointer
+            function dragged(d) {
+                d.fx = d3.event.x;
+                d.fy = d3.event.y;
+            }
+
+            // This function is run at each iteration of the force algorithm, updating the nodes position.
+            function ticked() {
+                link
+                    .attr("x1", function(d) {
+                        return d.source.x;
+                    })
+                    .attr("y1", function(d) {
+                        return d.source.y;
+                    })
+                    .attr("x2", function(d) {
+                        return d.target.x;
+                    })
+                    .attr("y2", function(d) {
+                        return d.target.y;
+                    });
+
+                node
+                    .attr("cx", function(d) {
+                        return d.x + 6;
+                    })
+                    .attr("cy", function(d) {
+                        return d.y - 6;
+                    });
+            }
+
+            function dragended(d) {
+                if (!d3.event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+
+            simulation.start()
+        });
+    </script>
+
+
+</body>
+
+</html>
